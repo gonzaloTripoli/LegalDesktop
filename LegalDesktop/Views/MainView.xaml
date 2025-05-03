@@ -33,7 +33,6 @@
             <DataGrid.Columns>
                 <DataGridCheckBoxColumn Header="✔" Binding="{Binding IsSelected}" Width="50"/>
                 <DataGridTextColumn Header="Nombre del Archivo" Binding="{Binding Name}" Width="*"/>
-                <DataGridTextColumn Header="Última Modificación" Binding="{Binding LastModified}" Width="200"/>
                 <DataGridTemplateColumn Header="Acción" Width="100">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
@@ -43,11 +42,26 @@
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
+                <DataGridTemplateColumn Header="Acción" Width="100">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <Button Content="📄 Ver Antecedentes" Command="{Binding DataContext.ViewBackgroundCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+CommandParameter="{Binding PathBackGround}" Width="80" Height="30" 
+Background="#FF9800" Foreground="White"/>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
             </DataGrid.Columns>
         </DataGrid>
 
         <!-- Fila 2 - Botones "Firmar" y "Denegar" -->
-        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="10">
+       
+           
+
+            <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="10">
+
+            <Button Content="Pasar Documento" Width="150" Height="40" Command="{Binding SkipCommand}"
+FontFamily="Segoe UI Emoji" Background="DarkOrchid" Foreground="White" BorderThickness="0" Margin="5"/>
             <Button Content="🔑 Firmar" Width="150" Height="40" Command="{Binding SignCommand}"
         FontFamily="Segoe UI Emoji" Background="#2196F3" Foreground="White" BorderThickness="0" Margin="5"/>
 
