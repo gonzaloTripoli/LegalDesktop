@@ -51,6 +51,8 @@ Background="#FF9800" Foreground="White"/>
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
+                <DataGridTextColumn Header="Mensajes del tribunal" Binding="{Binding PrivateMessage}" Width="*"/>
+
             </DataGrid.Columns>
         </DataGrid>
 

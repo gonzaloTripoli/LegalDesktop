@@ -14,6 +14,8 @@ using LegalDesktop.Models.Dtos;
 using Newtonsoft.Json;
 using System.Text;
 using LegalDesktop.Views;
+using LegalDesktop.Services;
+using System.Windows.Controls;
 
 
 
@@ -34,7 +36,7 @@ public class MainViewModel
     private readonly string _pdfsToSignFolder = Path.Combine(
        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "LegalDesktop", "PdfToSign");
     private TaskCompletionSource<bool> _signingCompleteTcs;
-
+    private readonly string url = "https://localhost:7067/";
 
     public ObservableCollection<PdfModel> PdfFiles { get; set; }
     private FileSystemWatcher _watcher; // Observador de cambios en la carpeta
@@ -57,7 +59,7 @@ public class MainViewModel
         _token = token;
 
         InitializeDocumentsAsync();
-
+        
         SelectAllCommand = new RelayCommand(SelectAll);
         SignCommand = new RelayCommand(SignSelectedFiles);
         SkipCommand = new RelayCommand(SkipSelectedFiles);
@@ -118,7 +120,7 @@ public class MainViewModel
             var filePath = Path.Combine(_pdfFolderPath, doc.FileName);
             File.WriteAllBytes(filePath, doc.Content);
 
-            PdfFiles.Add(new PdfModel { Id = doc.Id, Name = doc.FileName, Path = filePath, PathBackGround = fileBackground });
+            PdfFiles.Add(new PdfModel { Id = doc.Id, Name = doc.FileName, Path = filePath, PathBackGround = fileBackground, PrivateMessage = doc.PrivateMessage });
 
         }
     }
@@ -129,7 +131,7 @@ public class MainViewModel
         try
         {
             var client = new HttpClient();
-            client.BaseAddress = new Uri("https://localhost:7067/");
+            client.BaseAddress = new Uri(url);
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _token);
 
             var response = await client.GetAsync("api/Documents/documents-to-sign");
@@ -160,7 +162,7 @@ public class MainViewModel
 
         using var client = new HttpClient
         {
-            BaseAddress = new Uri("https://localhost:7067/")
+            BaseAddress = new Uri(url)
         };
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _token);
 
@@ -186,7 +188,11 @@ public class MainViewModel
 
                 if (response.IsSuccessStatusCode)
                 {
-                    pdf.IsSelected = false; // desmarcar
+                    File.Delete(pdf.PathBackGround);
+                    File.Delete(pdf.Path);
+                    PdfFiles.Remove(pdf);
+
+
                 }
                 else
                 {
@@ -202,39 +208,46 @@ public class MainViewModel
 
 
 
-    private void SignSelectedFiles()
+    private async void SignSelectedFiles()
     {
         var selectedFiles = PdfFiles.Where(p => p.IsSelected).ToList();
-        string destinationFolder = _pdfsToSignFolder;
-
-        if (!Directory.Exists(destinationFolder))
+        var tokenService = new TokenSignerService();
+        tokenService.Initialize();
+        try
         {
-            Directory.CreateDirectory(destinationFolder);
-        }
+            // 1. Pedir PIN
+            var pinDialog = new PinDialog();
+            if (pinDialog.ShowDialog() != true) return;
 
-        foreach (var pdf in selectedFiles)
+            tokenService.Login(pinDialog.Pin);
+            var certificates = tokenService.ListCertificates();
+            var certDialog = new CertificateSelectionDialog(certificates);
+            if (certDialog.ShowDialog() != true) return;
+
+            // 3. Firmar cada PDF
+            foreach (var pdf in selectedFiles)
+            {
+                byte[] pdfBytes = File.ReadAllBytes(pdf.Path);
+                byte[] signedBytes = tokenService.SignPdf(
+                    pdfBytes,
+                    certDialog.SelectedCertificate,
+                    pinDialog.Pin
+                );
+                string signedPath = Path.Combine(_signedPdfsFolder, pdf.Name);
+                pdf.Path = signedPath;
+                File.WriteAllBytes(signedPath, signedBytes);
+                
+                await UploadSignedFilesAsync(new List<PdfModel> { pdf });
+            }
+        }
+        catch (Exception ex)
         {
-            string sourceFilePath = pdf.Path;
-            string destinationFilePath = Path.Combine(destinationFolder, Path.GetFileName(sourceFilePath));
-            pdf.Path = destinationFilePath;
-
-            try
-            {
-                File.Move(sourceFilePath, destinationFilePath);
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Error al mover el archivo: {ex.Message}");
-                return;
-            }
+            MessageBox.Show($"Error: {ex.Message}");
         }
-
-        ModifyXolidoSignConfig(destinationFolder, _signedPdfsFolder);
-
-        StartXolidoSign();
-
-        StartWatchingSignedFiles(selectedFiles);
-
+        finally
+        {
+            tokenService.Dispose();
+        }
     }
 
     private void ModifyXolidoSignConfig(string signingFolder, string pdfReadyFolder)
@@ -406,7 +419,7 @@ public class MainViewModel
             try
             {
                 using var client = new HttpClient();
-                client.BaseAddress = new Uri("https://localhost:7067/");
+                client.BaseAddress = new Uri(url);
                 client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _token);
 
                 using var form = new MultipartFormDataContent();
@@ -423,6 +436,9 @@ public class MainViewModel
                 if (response.IsSuccessStatusCode)
                 {
                     Console.WriteLine($"Archivo '{pdf.Path}' subido correctamente.");
+                    File.Delete(pdf.PathBackGround);
+                    File.Delete(pdf.Path);
+                    PdfFiles.Remove(pdf);
                 }
                 else
                 {
@@ -436,7 +452,7 @@ public class MainViewModel
         }
     }
 
-    private void DeclineSelectedFiles()
+    private async void DeclineSelectedFiles()
     {
         var selectedFiles = PdfFiles.Where(p => p.IsSelected).ToList();
 
@@ -446,14 +462,46 @@ public class MainViewModel
             return;
         }
 
+        using var client = new HttpClient
+        {
+            BaseAddress = new Uri(url)
+        };
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _token);
+
         foreach (var pdf in selectedFiles)
         {
-            MessageBox.Show($"Denegando: {pdf.Name}");
+            try
+            {
+                var payload = new
+                {
+                    documentId = pdf.Id,
+                    publicMessage = $"Denegado " 
+                };
+
+                var json = JsonConvert.SerializeObject(payload);
+                var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+                var response = await client.PostAsync("api/Documents/deny", content);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    MessageBox.Show($"Documento '{pdf.Name}' denegado correctamente.");
+                    File.Delete(pdf.PathBackGround);
+                    File.Delete(pdf.Path);
+                    PdfFiles.Remove(pdf);
+                }
+                else
+                {
+                    MessageBox.Show($"Error al denegar '{pdf.Name}': {response.StatusCode}");
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Excepción al denegar '{pdf.Name}': {ex.Message}");
+            }
         }
-
-
-        // await HttpClient.PostAsync("URL_API_DENEGAR", new StringContent(JsonConvert.SerializeObject(selectedFiles), Encoding.UTF8, "application/json"));
     }
+
 
     private void SelectAll()
     {

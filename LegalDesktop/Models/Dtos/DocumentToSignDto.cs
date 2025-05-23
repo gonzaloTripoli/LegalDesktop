@@ -14,6 +14,8 @@ namespace LegalDesktop.Models.Dtos
         public string Type { get; set; }
         public DateTime CreatedAt { get; set; }
 
+        public string PrivateMessage { get; set; }
+
         public BackgroundDcToSignDto BackgroundDcToSignDto { get; set; }
     }
 }
