@@ -9,6 +9,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Windows;
 
 namespace LegalDesktop.Services
 {
@@ -33,8 +34,10 @@ namespace LegalDesktop.Services
 
             var slots = _pkcs11Library.GetSlotList(SlotsType.WithTokenPresent);
             if (slots.Count == 0)
-                throw new Exception("No se detectó ningún token StarSign.");
-
+            {
+                System.Windows.MessageBox.Show("Recuerde ingresar el token correspondiente.", "Falta de token", MessageBoxButton.OK, MessageBoxImage.Error);
+                return false;
+            }
             _slot = slots[0];
             return true;
         }

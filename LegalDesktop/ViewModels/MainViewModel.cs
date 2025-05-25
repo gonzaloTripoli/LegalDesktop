@@ -16,11 +16,19 @@ using System.Text;
 using LegalDesktop.Views;
 using LegalDesktop.Services;
 using System.Windows.Controls;
+using System.ComponentModel;
 
 
 
-public class MainViewModel
+public class MainViewModel : INotifyPropertyChanged
 {
+
+    public event PropertyChangedEventHandler PropertyChanged;
+
+    protected void OnPropertyChanged(string propertyName)
+    {
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+    }
     private readonly string _pdfFolderPath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "LegalDesktop",
@@ -40,7 +48,16 @@ public class MainViewModel
 
     public ObservableCollection<PdfModel> PdfFiles { get; set; }
     private FileSystemWatcher _watcher; // Observador de cambios en la carpeta
-
+    private bool _isLoading;
+    public bool IsLoading
+    {
+        get => _isLoading;
+        set
+        {
+            _isLoading = value;
+            OnPropertyChanged(nameof(IsLoading)); // Asegúrate de tener INotifyPropertyChanged implementado
+        }
+    }
     private string _token;
     // Comandos
     public ICommand SelectAllCommand { get; }
@@ -59,7 +76,7 @@ public class MainViewModel
         _token = token;
 
         InitializeDocumentsAsync();
-        
+
         SelectAllCommand = new RelayCommand(SelectAll);
         SignCommand = new RelayCommand(SignSelectedFiles);
         SkipCommand = new RelayCommand(SkipSelectedFiles);
@@ -102,26 +119,35 @@ public class MainViewModel
     }
     private async Task DownloadAndSavePdfsAsync()
     {
-        var documentos = await GetDocumentsFromApiAsync();
+        IsLoading = true;
 
-        if (!Directory.Exists(_pdfFolderPath))
-            Directory.CreateDirectory(_pdfFolderPath);
-
-
-        if (!Directory.Exists(_pdfBackGroundFolderPath))
-            Directory.CreateDirectory(_pdfBackGroundFolderPath);
-
-        foreach (var doc in documentos)
+        try
         {
+            var documentos = await GetDocumentsFromApiAsync();
 
-            var fileBackground = Path.Combine(_pdfBackGroundFolderPath, doc.BackgroundDcToSignDto.FileName);
-            File.WriteAllBytes(fileBackground, doc.BackgroundDcToSignDto.Content);
+            if (!Directory.Exists(_pdfFolderPath))
+                Directory.CreateDirectory(_pdfFolderPath);
 
-            var filePath = Path.Combine(_pdfFolderPath, doc.FileName);
-            File.WriteAllBytes(filePath, doc.Content);
 
-            PdfFiles.Add(new PdfModel { Id = doc.Id, Name = doc.FileName, Path = filePath, PathBackGround = fileBackground, PrivateMessage = doc.PrivateMessage });
+            if (!Directory.Exists(_pdfBackGroundFolderPath))
+                Directory.CreateDirectory(_pdfBackGroundFolderPath);
 
+            foreach (var doc in documentos)
+            {
+
+                var fileBackground = Path.Combine(_pdfBackGroundFolderPath, doc.BackgroundDcToSignDto.FileName);
+                File.WriteAllBytes(fileBackground, doc.BackgroundDcToSignDto.Content);
+
+                var filePath = Path.Combine(_pdfFolderPath, doc.FileName);
+                File.WriteAllBytes(filePath, doc.Content);
+
+                PdfFiles.Add(new PdfModel { Id = doc.Id, Name = doc.FileName, Path = filePath, PathBackGround = fileBackground, PrivateMessage = doc.PrivateMessage });
+
+            }
+        }
+        finally
+        {
+            IsLoading = false;
         }
     }
 
@@ -211,131 +237,64 @@ public class MainViewModel
     private async void SignSelectedFiles()
     {
         var selectedFiles = PdfFiles.Where(p => p.IsSelected).ToList();
-        var tokenService = new TokenSignerService();
-        tokenService.Initialize();
-        try
+        if (selectedFiles.Count() > 0)
         {
-            // 1. Pedir PIN
-            var pinDialog = new PinDialog();
-            if (pinDialog.ShowDialog() != true) return;
 
-            tokenService.Login(pinDialog.Pin);
-            var certificates = tokenService.ListCertificates();
-            var certDialog = new CertificateSelectionDialog(certificates);
-            if (certDialog.ShowDialog() != true) return;
 
-            // 3. Firmar cada PDF
-            foreach (var pdf in selectedFiles)
+
+
+            var tokenService = new TokenSignerService();
+
+            if (tokenService.Initialize())
             {
-                byte[] pdfBytes = File.ReadAllBytes(pdf.Path);
-                byte[] signedBytes = tokenService.SignPdf(
-                    pdfBytes,
-                    certDialog.SelectedCertificate,
-                    pinDialog.Pin
-                );
-                string signedPath = Path.Combine(_signedPdfsFolder, pdf.Name);
-                pdf.Path = signedPath;
-                File.WriteAllBytes(signedPath, signedBytes);
-                
-                await UploadSignedFilesAsync(new List<PdfModel> { pdf });
-            }
-        }
-        catch (Exception ex)
-        {
-            MessageBox.Show($"Error: {ex.Message}");
-        }
-        finally
-        {
-            tokenService.Dispose();
-        }
-    }
+                try
+                {
+                    // 1. Pedir PIN
+                    var pinDialog = new PinDialog();
+                    if (pinDialog.ShowDialog() != true) return;
 
-    private void ModifyXolidoSignConfig(string signingFolder, string pdfReadyFolder)
-    {
-        try
-        {
-            string userName = Environment.UserName;
-            string xmlPath = $@"C:\Users\{userName}\AppData\Roaming\Xolido_Systems,_S_A_\XolidoSign\sign.xml";
+                    tokenService.Login(pinDialog.Pin);
+                    var certificates = tokenService.ListCertificates();
+                    var certDialog = new CertificateSelectionDialog(certificates);
+                    if (certDialog.ShowDialog() != true) return;
 
-            if (!File.Exists(xmlPath))
-                return;
+                    // 3. Firmar cada PDF
+                    foreach (var pdf in selectedFiles)
+                    {
+                        byte[] pdfBytes = File.ReadAllBytes(pdf.Path);
+                        byte[] signedBytes = tokenService.SignPdf(
+                            pdfBytes,
+                            certDialog.SelectedCertificate,
+                            pinDialog.Pin
+                        );
+                        string signedPath = Path.Combine(_signedPdfsFolder, pdf.Name);
+                        pdf.Path = signedPath;
+                        File.WriteAllBytes(signedPath, signedBytes);
 
-            XDocument xmlDoc = XDocument.Load(xmlPath);
-
-            var lastDirField = xmlDoc.Descendants("field")
-                .FirstOrDefault(f => f.Attribute("name")?.Value == "lastDirectorySelectFiles");
-
-            var nextDirField = xmlDoc.Descendants("field")
-                .FirstOrDefault(f => f.Attribute("name")?.Value == "pathCarpetaSalida");
-
-            var modoDeSalidaField = xmlDoc.Descendants("field")
-                .FirstOrDefault(f => f.Attribute("name")?.Value == "modoDeSalida");
-
-            bool modified = false;
-
-            if (nextDirField != null && nextDirField.Value != pdfReadyFolder)
-            {
-                nextDirField.Value = pdfReadyFolder;
-                modified = true;
-            }
-
-            if (lastDirField != null && lastDirField.Value != signingFolder)
-            {
-                lastDirField.Value = signingFolder;
-                modified = true;
-            }
-
-            if (modoDeSalidaField != null)
-            {
-                // Reemplazar contenido con la estructura deseada
-                var structElement = new XElement("struct",
-                    new XAttribute("name", "Org.Xolido.XolidoSign.API_Firma.ModoDeSalida"),
-                    new XElement("field",
-                        new XAttribute("name", "_iModeExpression"),
-                        "1"
-                    ),
-                    new XElement("field",
-                        new XAttribute("name", "_expression"),
-                        "%n%x"
-                    )
-                );
-
-                modoDeSalidaField.RemoveNodes();
-                modoDeSalidaField.Add(structElement);
-                modified = true;
-            }
-
-            if (modified)
-            {
-                xmlDoc.Save(xmlPath);
-            }
-        }
-        catch
-        {
-        }
-    }
-
-
-    private void StartXolidoSign()
-    {
-        try
-        {
-            string xolidoPath = @"C:\Program Files\XolidoSystems\XolidoSign\XolidoSign.exe";
-
-            if (File.Exists(xolidoPath))
-            {
-                Process.Start(xolidoPath);
+                        await UploadSignedFilesAsync(new List<PdfModel> { pdf });
+                    }
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"Error: {ex.Message}");
+                }
+                finally
+                {
+                    tokenService.Dispose();
+                }
             }
             else
             {
-                MessageBox.Show("No se encontró XolidoSign en la ruta esperada.");
+
             }
-        }
-        catch (Exception ex)
+        }else
         {
-            MessageBox.Show($"Error al ejecutar XolidoSign: {ex.Message}");
+            System.Windows.MessageBox.Show("Ningun documento marcado.", "Falta seleccion", MessageBoxButton.OK, MessageBoxImage.Error);
+
         }
     }
+
+
     private void ViewPdf(string filePath)
     {
         if (File.Exists(filePath))
@@ -357,61 +316,7 @@ public class MainViewModel
 
 
 
-    private void StartWatchingSignedFiles(List<PdfModel> expectedFiles)
-    {
-        if (!Directory.Exists(_signedPdfsFolder))
-            Directory.CreateDirectory(_signedPdfsFolder);
 
-        _signingCompleteTcs = new TaskCompletionSource<bool>();
-
-        var expectedFileNames = expectedFiles.Select(f => Path.GetFileName(f.Path)).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        var foundFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-        _watcher = new FileSystemWatcher
-        {
-            Path = _signedPdfsFolder,
-            Filter = "*.pdf",
-            NotifyFilter = NotifyFilters.FileName | NotifyFilters.LastWrite
-        };
-
-        _watcher.Created += (s, e) =>
-        {
-            string signedFileName = Path.GetFileName(e.FullPath);
-
-            var matched = expectedFiles.FirstOrDefault(p =>
-     Path.GetFileName(e.FullPath).Equals(Path.GetFileName(p.Path), StringComparison.OrdinalIgnoreCase));
-
-
-            if (matched != null)
-            {
-                matched.Path = e.FullPath;
-
-                foundFiles.Add(signedFileName);
-
-                if (foundFiles.Count == expectedFiles.Count)
-                {
-                    _signingCompleteTcs.TrySetResult(true);
-                }
-            }
-        };
-
-        _watcher.EnableRaisingEvents = true;
-
-        Task.Run(async () =>
-        {
-            MessageBox.Show("Esperando la firma de los documentos en XolidoSign...");
-
-            await _signingCompleteTcs.Task;
-
-            _watcher.EnableRaisingEvents = false;
-            _watcher.Dispose();
-
-            Application.Current.Dispatcher.Invoke(async () =>
-            {
-                await UploadSignedFilesAsync(expectedFiles);
-            });
-        });
-    }
     private async Task UploadSignedFilesAsync(List<PdfModel> signedFiles)
     {
         foreach (var pdf in signedFiles)
@@ -475,7 +380,7 @@ public class MainViewModel
                 var payload = new
                 {
                     documentId = pdf.Id,
-                    publicMessage = $"Denegado " 
+                    publicMessage = $"Denegado "
                 };
 
                 var json = JsonConvert.SerializeObject(payload);
