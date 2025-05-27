@@ -5,6 +5,7 @@ public class PdfModel : INotifyPropertyChanged
 
     public int Id { get; set; }
 
+    public int SecretaryId { get; set; }
 
     private bool _isSelected;
     public string Name { get; set; }
@@ -12,6 +13,9 @@ public class PdfModel : INotifyPropertyChanged
 
     public string? PrivateMessage { get; set; }
     public string Path { get; set; }
+
+    public string SecretaryDisplay => $"Secretaría número {SecretaryId}";
+
     public bool IsSelected
     {
         get { return _isSelected; }
@@ -25,7 +29,7 @@ public class PdfModel : INotifyPropertyChanged
         }
     }
 
-    public string PathBackGround {  get; set; }
+    public string? PathBackGround {  get; set; }
 
     public event PropertyChangedEventHandler PropertyChanged;
 

@@ -1,11 +1,14 @@
 ﻿<Window x:Class="LegalDesktop.Views.MainView"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:converters="clr-namespace:LegalDesktop.Converters"
         Title="Gestión de PDFs" Height="700" Width="1100"
         WindowStartupLocation="CenterScreen" ResizeMode="NoResize">
 
+
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+        <converters:StringNullOrEmptyToBoolConverter x:Key="StringNullOrEmptyToBoolConverter"/>
     </Window.Resources>
 
     <Grid Margin="10">
@@ -43,12 +46,16 @@
                 <DataGridTemplateColumn Header="Acción" Width="100">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
-                            <Button Content="📄 Ver Antecedentes" Command="{Binding DataContext.ViewBackgroundCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                    CommandParameter="{Binding PathBackGround}" Width="80" Height="30" Background="#FF9800" Foreground="White"/>
+                            <Button Content="📄 Ver Antecedentes"
+        Command="{Binding DataContext.ViewBackgroundCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+        CommandParameter="{Binding PathBackGround}"
+        Width="80" Height="30"
+        Background="#FF9800" Foreground="White"
+        IsEnabled="{Binding PathBackGround, Converter={StaticResource StringNullOrEmptyToBoolConverter}}"/>
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
-                <DataGridTextColumn Header="Mensajes del tribunal" Binding="{Binding PrivateMessage}" Width="*"/>
+                <DataGridTextColumn Header="Secretaría de origen" Binding="{Binding SecretaryDisplay}" Width="*"/>
             </DataGrid.Columns>
         </DataGrid>
 

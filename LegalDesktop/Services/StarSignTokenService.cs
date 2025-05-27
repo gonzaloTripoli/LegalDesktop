@@ -13,9 +13,9 @@ using System.Windows;
 
 namespace LegalDesktop.Services
 {
-    public class TokenSignerService : IDisposable
+    public class StarSignTokenService : IDisposable
     {
-        private const string Pkcs11LibraryPath = @"C:\Windows\SysWOW64\aetpkss1.dll";
+        public const string Pkcs11LibraryPath = @"C:\Windows\SysWOW64\aetpkss1.dll";
         private readonly Pkcs11InteropFactories _factories = new Pkcs11InteropFactories();
         private IPkcs11Library _pkcs11Library;
         private ISlot _slot;

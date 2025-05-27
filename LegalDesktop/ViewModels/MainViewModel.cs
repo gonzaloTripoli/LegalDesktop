@@ -41,9 +41,7 @@ public class MainViewModel : INotifyPropertyChanged
 );
     private readonly string _signedPdfsFolder = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "LegalDesktop", "SignedPdfs");
-    private readonly string _pdfsToSignFolder = Path.Combine(
-       Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "LegalDesktop", "PdfToSign");
-    private TaskCompletionSource<bool> _signingCompleteTcs;
+    // private readonly string url = "https://cncivil04.pjn.gov.ar/legaltrack/";
     private readonly string url = "https://localhost:7067/";
 
     public ObservableCollection<PdfModel> PdfFiles { get; set; }
@@ -134,14 +132,18 @@ public class MainViewModel : INotifyPropertyChanged
 
             foreach (var doc in documentos)
             {
+                var fileBackground = "";
 
-                var fileBackground = Path.Combine(_pdfBackGroundFolderPath, doc.BackgroundDcToSignDto.FileName);
-                File.WriteAllBytes(fileBackground, doc.BackgroundDcToSignDto.Content);
+                if (doc.BackgroundDcToSignDto != null){
+                    fileBackground = Path.Combine(_pdfBackGroundFolderPath, doc.BackgroundDcToSignDto.FileName);
+                    File.WriteAllBytes(fileBackground, doc.BackgroundDcToSignDto.Content);
+
+                }
 
                 var filePath = Path.Combine(_pdfFolderPath, doc.FileName);
                 File.WriteAllBytes(filePath, doc.Content);
 
-                PdfFiles.Add(new PdfModel { Id = doc.Id, Name = doc.FileName, Path = filePath, PathBackGround = fileBackground, PrivateMessage = doc.PrivateMessage });
+                PdfFiles.Add(new PdfModel { Id = doc.Id, Name = doc.FileName, Path = filePath, PathBackGround = fileBackground, PrivateMessage = doc.PrivateMessage , SecretaryId= doc.SecretaryId });
 
             }
         }
@@ -185,7 +187,11 @@ public class MainViewModel : INotifyPropertyChanged
     public async void SkipSelectedFiles()
     {
         var selectedFiles = PdfFiles.Where(p => p.IsSelected).ToList();
-
+        if (selectedFiles.Count == 0)
+        {
+            MessageBox.Show("Ningún documento marcado.", "Falta selección", MessageBoxButton.OK, MessageBoxImage.Error);
+            return;
+        }
         using var client = new HttpClient
         {
             BaseAddress = new Uri(url)
@@ -214,7 +220,11 @@ public class MainViewModel : INotifyPropertyChanged
 
                 if (response.IsSuccessStatusCode)
                 {
-                    File.Delete(pdf.PathBackGround);
+                    if (pdf.PathBackGround != null)
+                    {
+                        File.Delete(pdf.PathBackGround);
+
+                    }
                     File.Delete(pdf.Path);
                     PdfFiles.Remove(pdf);
 
@@ -237,61 +247,112 @@ public class MainViewModel : INotifyPropertyChanged
     private async void SignSelectedFiles()
     {
         var selectedFiles = PdfFiles.Where(p => p.IsSelected).ToList();
-        if (selectedFiles.Count() > 0)
+        if (selectedFiles.Count == 0)
         {
-
-
-
-
-            var tokenService = new TokenSignerService();
-
-            if (tokenService.Initialize())
-            {
-                try
-                {
-                    // 1. Pedir PIN
-                    var pinDialog = new PinDialog();
-                    if (pinDialog.ShowDialog() != true) return;
-
-                    tokenService.Login(pinDialog.Pin);
-                    var certificates = tokenService.ListCertificates();
-                    var certDialog = new CertificateSelectionDialog(certificates);
-                    if (certDialog.ShowDialog() != true) return;
-
-                    // 3. Firmar cada PDF
-                    foreach (var pdf in selectedFiles)
-                    {
-                        byte[] pdfBytes = File.ReadAllBytes(pdf.Path);
-                        byte[] signedBytes = tokenService.SignPdf(
-                            pdfBytes,
-                            certDialog.SelectedCertificate,
-                            pinDialog.Pin
-                        );
-                        string signedPath = Path.Combine(_signedPdfsFolder, pdf.Name);
-                        pdf.Path = signedPath;
-                        File.WriteAllBytes(signedPath, signedBytes);
-
-                        await UploadSignedFilesAsync(new List<PdfModel> { pdf });
-                    }
-                }
-                catch (Exception ex)
-                {
-                    MessageBox.Show($"Error: {ex.Message}");
-                }
-                finally
-                {
-                    tokenService.Dispose();
-                }
-            }
-            else
-            {
-
-            }
-        }else
-        {
-            System.Windows.MessageBox.Show("Ningun documento marcado.", "Falta seleccion", MessageBoxButton.OK, MessageBoxImage.Error);
-
+            MessageBox.Show("Ningún documento marcado.", "Falta selección", MessageBoxButton.OK, MessageBoxImage.Error);
+            return;
         }
+
+        var detector = new TokenDetectorService();
+
+        var token = detector.DetectAvailableToken();
+
+
+        if (token == TokenDetectorService.TokenType.StarSign)
+        {
+
+
+            var tokenService = new StarSignTokenService();
+
+            tokenService.Initialize();
+
+            try
+            {
+                // 1. Pedir PIN
+                var pinDialog = new PinDialog();
+                if (pinDialog.ShowDialog() != true) return;
+
+                tokenService.Login(pinDialog.Pin);
+                var certificates = tokenService.ListCertificates();
+                var certDialog = new CertificateSelectionDialog(certificates);
+                if (certDialog.ShowDialog() != true) return;
+
+                // 3. Firmar cada PDF
+                foreach (var pdf in selectedFiles)
+                {
+                    byte[] pdfBytes = File.ReadAllBytes(pdf.Path);
+                    byte[] signedBytes = tokenService.SignPdf(
+                        pdfBytes,
+                        certDialog.SelectedCertificate,
+                        pinDialog.Pin
+                    );
+                    string signedPath = Path.Combine(_signedPdfsFolder, pdf.Name);
+                    pdf.Path = signedPath;
+                    File.WriteAllBytes(signedPath, signedBytes);
+
+                    await UploadSignedFilesAsync(new List<PdfModel> { pdf });
+
+
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error: {ex.Message}");
+            }
+            finally
+            {
+                MessageBox.Show("Firmado correctamente.", "Estado de firma", MessageBoxButton.OK, MessageBoxImage.Information);
+
+                tokenService.Dispose();
+            }
+        }
+        else if (token == TokenDetectorService.TokenType.EPass2003)
+        {
+            var tokenService = new EPass2003TokenService();
+            try
+            {
+                var certificates = tokenService.ListCertificates();
+                if (certificates == null || certificates.Count == 0)
+                {
+                    MessageBox.Show("No se encontraron certificados válidos para ePass2003.");
+                    return;
+                }
+
+                var certDialog = new CertificateSelectionDialog(certificates);
+                if (certDialog.ShowDialog() != true) return;
+
+                foreach (var pdf in selectedFiles)
+                {
+                    byte[] pdfBytes = File.ReadAllBytes(pdf.Path);
+                    byte[] signedBytes = tokenService.SignPdf(
+                        pdfBytes,
+                        certDialog.SelectedCertificate
+                    );
+                    string signedPath = Path.Combine(_signedPdfsFolder, pdf.Name);
+                    Directory.CreateDirectory(_signedPdfsFolder); // Asegura que la carpeta exista
+                    File.WriteAllBytes(signedPath, signedBytes);
+                    File.Delete(pdf.Path);
+                    pdf.Path = signedPath;
+
+                    await UploadSignedFilesAsync(new List<PdfModel> { pdf });
+                    MessageBox.Show( "Firmado correctamente.", "Estado de firma.", MessageBoxButton.OK, MessageBoxImage.Information);
+
+                }
+
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Error", "No se ha podido firmar correctamente ", MessageBoxButton.OK, MessageBoxImage.Warning);
+                MessageBox.Show( "Error", "Ha habido un error al intentar firmar el documento. Por favor comuniquese con el area de sistemas si ya reinicio la aplicacion.", MessageBoxButton.OK, MessageBoxImage.Warning);
+
+            }
+        }
+        else
+        {
+            MessageBox.Show("No se detectó un token válido para firmar.", "Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+
+
     }
 
 
@@ -341,9 +402,13 @@ public class MainViewModel : INotifyPropertyChanged
                 if (response.IsSuccessStatusCode)
                 {
                     Console.WriteLine($"Archivo '{pdf.Path}' subido correctamente.");
-                    File.Delete(pdf.PathBackGround);
+                    if(pdf.PathBackGround != ""){
+                        File.Delete(pdf.PathBackGround);
+
+                    }
                     File.Delete(pdf.Path);
                     PdfFiles.Remove(pdf);
+
                 }
                 else
                 {
@@ -361,9 +426,9 @@ public class MainViewModel : INotifyPropertyChanged
     {
         var selectedFiles = PdfFiles.Where(p => p.IsSelected).ToList();
 
-        if (!selectedFiles.Any())
+        if (selectedFiles.Count == 0)
         {
-            MessageBox.Show("No hay archivos seleccionados para denegar.", "Aviso", MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show("Ningún documento marcado.", "Falta selección", MessageBoxButton.OK, MessageBoxImage.Error);
             return;
         }
 
@@ -391,7 +456,11 @@ public class MainViewModel : INotifyPropertyChanged
                 if (response.IsSuccessStatusCode)
                 {
                     MessageBox.Show($"Documento '{pdf.Name}' denegado correctamente.");
-                    File.Delete(pdf.PathBackGround);
+                    if (pdf.PathBackGround != null)
+                    {
+                        File.Delete(pdf.PathBackGround);
+
+                    }
                     File.Delete(pdf.Path);
                     PdfFiles.Remove(pdf);
                 }
