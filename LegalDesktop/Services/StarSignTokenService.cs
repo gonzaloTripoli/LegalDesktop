@@ -15,7 +15,6 @@ namespace LegalDesktop.Services
 {
     public class StarSignTokenService : IDisposable
     {
-        public const string Pkcs11LibraryPath = @"C:\Windows\SysWOW64\aetpkss1.dll";
         private readonly Pkcs11InteropFactories _factories = new Pkcs11InteropFactories();
         private IPkcs11Library _pkcs11Library;
         private ISlot _slot;
@@ -23,12 +22,12 @@ namespace LegalDesktop.Services
 
         public bool Initialize()
         {
-            if (!File.Exists(Pkcs11LibraryPath))
+            if (!File.Exists(AppConfig.Pkcs11LibraryPath))
                 throw new FileNotFoundException("DLL de StarSign no encontrada.");
 
             _pkcs11Library = _factories.Pkcs11LibraryFactory.LoadPkcs11Library(
                 _factories,
-                Pkcs11LibraryPath,
+                AppConfig.Pkcs11LibraryPath,
                 AppType.SingleThreaded
             );
 
@@ -119,7 +118,7 @@ namespace LegalDesktop.Services
                 var sigPolicy = new PdfDictionary();
                 sigPolicy.Put(new PdfName("SigPolicyId"), new PdfString("2.16.32.1.1.3")); // OID
                 sigPolicy.Put(new PdfName("SigPolicyDescription"), new PdfString("Política de Firma Digital Argentina"));
-                sigPolicy.Put(new PdfName("SigPolicyUri"), new PdfString("http://pki.jgm.gov.ar/cps/cps.pdf"));
+                sigPolicy.Put(new PdfName("SigPolicyUri"), new PdfString(AppConfig.SigPolicyUri));
 
                 signatureDic.Put(PdfName.FILTER, PdfName.ADOBE_PPKLITE);
                 signatureDic.Put(PdfName.SUBFILTER, PdfName.ADBE_PKCS7_DETACHED);

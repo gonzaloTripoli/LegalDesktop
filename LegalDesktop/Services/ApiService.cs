@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 using System.Windows;
+using LegalDesktop.Services;
 
 namespace LegalDesktop.Services
 {
@@ -28,8 +29,7 @@ namespace LegalDesktop.Services
 
             try
             {
-                //  var response = await _httpClient.PostAsync("https://localhost:7067/api/Users/login", content);
-                var response = await _httpClient.PostAsync("https://cncivil04.pjn.gov.ar/legaltrack/api/Users/login", content);
+                var response = await _httpClient.PostAsync(AppConfig.LoginEndpoint, content);
 
                 if (response.IsSuccessStatusCode)
                 {

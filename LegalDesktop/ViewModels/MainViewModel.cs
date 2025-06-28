@@ -8,6 +8,7 @@ using System.Net.Http;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Threading;
+using LegalDesktop.Services;
 using System.Xml.Linq;
 using LegalDesktop.Models;
 using LegalDesktop.Models.Dtos;
@@ -41,8 +42,7 @@ public class MainViewModel : INotifyPropertyChanged
 );
     private readonly string _signedPdfsFolder = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "LegalDesktop", "SignedPdfs");
-     private readonly string url = "https://cncivil04.pjn.gov.ar/legaltrack/";
-    // private readonly string url = "https://localhost:7067/";
+    private readonly string url = AppConfig.BaseApiUrl;
 
     public ObservableCollection<PdfModel> PdfFiles { get; set; }
     private FileSystemWatcher _watcher; // Observador de cambios en la carpeta
