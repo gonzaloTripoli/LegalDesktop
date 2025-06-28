@@ -1,6 +1,7 @@
 ﻿using System.Diagnostics;
 using System.Windows;
 using System.Windows.Navigation;
+using LegalDesktop.Services;
 
 namespace LegalDesktop.Views
 {
@@ -17,8 +18,7 @@ namespace LegalDesktop.Views
         }
         private void DocumentationButton_Click(object sender, RoutedEventArgs e)
         {
-            string url = "https://ruta-a-la-documentacion"; // Reemplazalo por tu URL real o path local
-            Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
+            Process.Start(new ProcessStartInfo(AppConfig.DocumentationUrl) { UseShellExecute = true });
         }
         private void Close_Click(object sender, RoutedEventArgs e)
         {

@@ -53,13 +53,13 @@ internal class TokenDetectorService
         try
         {
             // Implementación específica para detectar StarSign
-            if (!File.Exists(StarSignTokenService.Pkcs11LibraryPath))
+            if (!File.Exists(AppConfig.Pkcs11LibraryPath))
                 return false;
 
             var factories = new Pkcs11InteropFactories();
             using (var pkcs11Library = factories.Pkcs11LibraryFactory.LoadPkcs11Library(
                 factories,
-                StarSignTokenService.Pkcs11LibraryPath,
+                AppConfig.Pkcs11LibraryPath,
                 AppType.SingleThreaded))
             {
                 var slots = pkcs11Library.GetSlotList(SlotsType.WithTokenPresent);
