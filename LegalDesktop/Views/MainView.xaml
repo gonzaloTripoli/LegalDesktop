@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:converters="clr-namespace:LegalDesktop.Converters"
         Title="Gestión de PDFs" Height="700" Width="1100"
-        WindowStartupLocation="CenterScreen" ResizeMode="NoResize">
+        WindowStartupLocation="CenterScreen" ResizeMode="CanMinimize">
 
 
     <Window.Resources>
@@ -11,6 +11,8 @@
         <converters:StringNullOrEmptyToBoolConverter x:Key="StringNullOrEmptyToBoolConverter"/>
     </Window.Resources>
 
+    
+    
     <Grid Margin="10">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -22,18 +24,47 @@
         </Grid.RowDefinitions>
 
         <!-- Fila 0 - Botones -->
-        <StackPanel Grid.Row="0" Orientation="Horizontal" HorizontalAlignment="Left" Margin="10">
-            <Button Content="🔘 Seleccionar Todo" Width="160" Height="35" Command="{Binding SelectAllCommand}"
-                    FontFamily="Segoe UI Emoji" Background="#4CAF50" Foreground="White" BorderThickness="0" Margin="5"/>
-            <Button Content="❌ Deseleccionar Todo" Width="180" Height="35" Command="{Binding UnselectAllCommand}"
-                    FontFamily="Segoe UI Emoji" Background="#F44336" Foreground="White" BorderThickness="0" Margin="5"/>
-        </StackPanel>
+        <!-- Fila 0 - Botones -->
+        <Grid Grid.Row="0" Margin="10">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <!-- Botones izquierda -->
+                <ColumnDefinition Width="Auto"/>
+                <!-- Botón info derecha -->
+            </Grid.ColumnDefinitions>
+
+            <!-- Botones izquierda -->
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" Grid.Column="0">
+                <Button Content="🔘 Seleccionar Todo" Width="160" Height="35" Command="{Binding SelectAllCommand}"
+                FontFamily="Segoe UI Emoji" Background="#4CAF50" Foreground="White" BorderThickness="0" Margin="5"/>
+                <Button Content="❌ Deseleccionar Todo" Width="180" Height="35" Command="{Binding UnselectAllCommand}"
+                FontFamily="Segoe UI Emoji" Background="#F44336" Foreground="White" BorderThickness="0" Margin="5"/>
+                <Button Content="🔄 Refrescar" Width="150" Height="35" Command="{Binding RefreshCommand}"
+                FontFamily="Segoe UI Emoji" Background="#607D8B" Foreground="White" BorderThickness="0" Margin="5"/>
+            </StackPanel>
+
+            <!-- Botón info derecha -->
+            <Button Content="ℹ" Width="30" Height="30"
+            ToolTip="Información de la aplicación"
+            Command="{Binding OpenInfoCommand}"
+            Background="#2196F3" Foreground="White" FontWeight="Bold"
+            FontFamily="Segoe UI Emoji" BorderThickness="0"
+            Grid.Column="1" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="5"/>
+        </Grid>
+
 
         <!-- Fila 1 - DataGrid -->
         <DataGrid Grid.Row="1" ItemsSource="{Binding PdfFiles}" AutoGenerateColumns="False" Margin="10"
                   IsReadOnly="False" CanUserAddRows="False" SelectionMode="Extended" HeadersVisibility="Column">
             <DataGrid.Columns>
-                <DataGridCheckBoxColumn Header="✔" Binding="{Binding IsSelected}" Width="50"/>
+                <DataGridTemplateColumn Header="✔" Width="50">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <CheckBox HorizontalAlignment="Center" VerticalAlignment="Center"
+                      IsChecked="{Binding IsSelected}" Click="CheckBox_Click"/>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
                 <DataGridTextColumn Header="Nombre del Archivo" Binding="{Binding Name}" Width="*"/>
                 <DataGridTemplateColumn Header="Acción" Width="100">
                     <DataGridTemplateColumn.CellTemplate>
@@ -65,7 +96,7 @@
                     FontFamily="Segoe UI Emoji" Background="DarkOrchid" Foreground="White" BorderThickness="0" Margin="5"/>
             <Button Content="🔑 Firmar" Width="150" Height="40" Command="{Binding SignCommand}"
                     FontFamily="Segoe UI Emoji" Background="#2196F3" Foreground="White" BorderThickness="0" Margin="5"/>
-            <Button Content="🚫 Denegar" Width="150" Height="40" Command="{Binding DeclineSelectCommand}"
+            <Button Content="🚫 Observar" Width="150" Height="40" Command="{Binding DeclineSelectCommand}"
                     FontFamily="Segoe UI Emoji" Background="#FF5722" Foreground="White" BorderThickness="0" Margin="5"/>
         </StackPanel>
 

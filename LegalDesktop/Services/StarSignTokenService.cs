@@ -44,9 +44,17 @@ namespace LegalDesktop.Services
 
         public bool Login(string pin)
         {
-            _session = _slot.OpenSession(SessionType.ReadWrite);
-            _session.Login(CKU.CKU_USER, pin);
-            return true;
+            try
+            {
+                _session = _slot.OpenSession(SessionType.ReadWrite);
+                _session.Login(CKU.CKU_USER, pin);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                return false;
+            }
+
         }
 
         public List<string> ListCertificates()
@@ -134,11 +142,7 @@ namespace LegalDesktop.Services
                     CryptoStandard.CADES
                 );
 
-                // 7. Guardar resultado
-                var outputPath = @"C:\firmasFirmadas\documento_firmado_" + DateTime.Now.ToString("yyyyMMddHHmmss") + ".pdf";
-                Directory.CreateDirectory(Path.GetDirectoryName(outputPath));
-                File.WriteAllBytes(outputPath, ms.ToArray());
-
+       
                 return ms.ToArray();
             }
         }

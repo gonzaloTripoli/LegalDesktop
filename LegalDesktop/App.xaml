@@ -3,6 +3,11 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              StartupUri="Views/LoginView.xaml">
     <Application.Resources>
-
+            <Style x:Key="DropShadowEffect" TargetType="DropShadowEffect">
+                <Setter Property="ShadowDepth" Value="3"/>
+                <Setter Property="Opacity" Value="0.2"/>
+                <Setter Property="BlurRadius" Value="10"/>
+                <Setter Property="Color" Value="#888888"/>
+            </Style>
     </Application.Resources>
 </Application>

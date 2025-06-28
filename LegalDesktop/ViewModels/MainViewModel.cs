@@ -41,8 +41,8 @@ public class MainViewModel : INotifyPropertyChanged
 );
     private readonly string _signedPdfsFolder = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "LegalDesktop", "SignedPdfs");
-    // private readonly string url = "https://cncivil04.pjn.gov.ar/legaltrack/";
-    private readonly string url = "https://localhost:7067/";
+     private readonly string url = "https://cncivil04.pjn.gov.ar/legaltrack/";
+    // private readonly string url = "https://localhost:7067/";
 
     public ObservableCollection<PdfModel> PdfFiles { get; set; }
     private FileSystemWatcher _watcher; // Observador de cambios en la carpeta
@@ -60,6 +60,8 @@ public class MainViewModel : INotifyPropertyChanged
     // Comandos
     public ICommand SelectAllCommand { get; }
     public ICommand SignCommand { get; }
+    public ICommand OpenInfoCommand { get; }
+
     public ICommand UnselectAllCommand { get; }
     public ICommand DeclineSelectCommand { get; }
     public ICommand ViewPdfCommand { get; }
@@ -68,13 +70,16 @@ public class MainViewModel : INotifyPropertyChanged
 
     public ICommand ViewBackgroundCommand { get; }
 
+    public ICommand RefreshCommand { get; }
     public MainViewModel(string token)
     {
         PdfFiles = new ObservableCollection<PdfModel>();
         _token = token;
 
         InitializeDocumentsAsync();
+        OpenInfoCommand = new RelayCommand(OpenInfoWindow);
 
+        RefreshCommand = new RelayCommand(Refresh);
         SelectAllCommand = new RelayCommand(SelectAll);
         SignCommand = new RelayCommand(SignSelectedFiles);
         SkipCommand = new RelayCommand(SkipSelectedFiles);
@@ -88,7 +93,23 @@ public class MainViewModel : INotifyPropertyChanged
     {
         await DownloadAndSavePdfsAsync();
     }
+    private async  void Refresh()
+    {
+        await DownloadAndSavePdfsAsync();
+    }
 
+    private void OpenInfoWindow()
+    {
+        var infoWindow = new InfoWindow();
+
+        // Previene el error si MainWindow no está correctamente seteado
+        if (Application.Current?.MainWindow != infoWindow && Application.Current?.MainWindow != null)
+        {
+            infoWindow.Owner = Application.Current.MainWindow;
+        }
+
+        infoWindow.ShowDialog();
+    }
 
     private void ConfigureFileWatcher()
     {
@@ -115,12 +136,14 @@ public class MainViewModel : INotifyPropertyChanged
     {
         // Se ejecuta en el hilo de UI para actualizar la lista
     }
+
     private async Task DownloadAndSavePdfsAsync()
     {
         IsLoading = true;
 
         try
         {
+           
             var documentos = await GetDocumentsFromApiAsync();
 
             if (!Directory.Exists(_pdfFolderPath))
@@ -130,6 +153,10 @@ public class MainViewModel : INotifyPropertyChanged
             if (!Directory.Exists(_pdfBackGroundFolderPath))
                 Directory.CreateDirectory(_pdfBackGroundFolderPath);
 
+            if (documentos.Count>0 && PdfFiles.Count>0)
+            {
+                PdfFiles.Clear();
+            }
             foreach (var doc in documentos)
             {
                 var fileBackground = "";
@@ -252,6 +279,16 @@ public class MainViewModel : INotifyPropertyChanged
             MessageBox.Show("Ningún documento marcado.", "Falta selección", MessageBoxButton.OK, MessageBoxImage.Error);
             return;
         }
+        var result = MessageBox.Show(
+       $"¿Estás seguro que deseas Firmar {selectedFiles.Count} documento(s)? Esta acción no se puede deshacer.",
+       "Confirmar firma",
+       MessageBoxButton.YesNo,
+       MessageBoxImage.Warning);
+
+        if (result != MessageBoxResult.Yes)
+        {
+            return;
+        }
 
         var detector = new TokenDetectorService();
 
@@ -286,6 +323,7 @@ public class MainViewModel : INotifyPropertyChanged
                         certDialog.SelectedCertificate,
                         pinDialog.Pin
                     );
+                    Directory.CreateDirectory(_signedPdfsFolder); 
                     string signedPath = Path.Combine(_signedPdfsFolder, pdf.Name);
                     pdf.Path = signedPath;
                     File.WriteAllBytes(signedPath, signedBytes);
@@ -431,6 +469,16 @@ public class MainViewModel : INotifyPropertyChanged
             MessageBox.Show("Ningún documento marcado.", "Falta selección", MessageBoxButton.OK, MessageBoxImage.Error);
             return;
         }
+        var result = MessageBox.Show(
+            $"¿Estás seguro que deseas denegar {selectedFiles.Count} documento(s)? Esta acción no se puede deshacer.",
+            "Confirmar denegación",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Warning);
+
+        if (result != MessageBoxResult.Yes)
+        {
+            return; 
+        }
 
         using var client = new HttpClient
         {
@@ -442,10 +490,17 @@ public class MainViewModel : INotifyPropertyChanged
         {
             try
             {
+                var dialog = new ComentaryDialog(pdf.PrivateMessage);
+                if (dialog.ShowDialog() != true)
+                    continue;
+
+                pdf.PrivateMessage = dialog.Comentario;
+
+            
                 var payload = new
                 {
                     documentId = pdf.Id,
-                    publicMessage = $"Denegado "
+                    publicMessage = pdf.PrivateMessage
                 };
 
                 var json = JsonConvert.SerializeObject(payload);
@@ -456,7 +511,7 @@ public class MainViewModel : INotifyPropertyChanged
                 if (response.IsSuccessStatusCode)
                 {
                     MessageBox.Show($"Documento '{pdf.Name}' denegado correctamente.");
-                    if (pdf.PathBackGround != null)
+                    if (pdf.PathBackGround != "")
                     {
                         File.Delete(pdf.PathBackGround);
 
@@ -483,6 +538,11 @@ public class MainViewModel : INotifyPropertyChanged
         {
             pdf.IsSelected = true;
         }
+    }
+
+    private void filterSecretary (int secretaryId)
+    {
+
     }
 
     private void UnselectAll()

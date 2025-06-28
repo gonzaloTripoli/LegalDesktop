@@ -23,5 +23,13 @@ namespace LegalDesktop.Views
         {
             InitializeComponent();
         }
+
+        private void CheckBox_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is CheckBox checkBox && checkBox.DataContext is PdfModel pdf)
+            {
+                pdf.IsSelected = checkBox.IsChecked == true;
+            }
+        }
     }
 }

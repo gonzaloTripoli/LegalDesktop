@@ -6,7 +6,10 @@ using System.Threading.Tasks;
 
 namespace LegalDesktop.Models
 {
-    internal class UserModel
+    public class UserModel
     {
+        public string userName {  get; set; }
+
+
     }
 }
