@@ -116,28 +116,27 @@ namespace LegalDesktop.Services
                 var signatureDic = new PdfDictionary();
 
                 var sigPolicy = new PdfDictionary();
-                sigPolicy.Put(new PdfName("SigPolicyId"), new PdfString("2.16.32.1.1.3")); // OID
+                sigPolicy.Put(new PdfName("SigPolicyId"), new PdfString("2.16.32.1.1.3")); 
                 sigPolicy.Put(new PdfName("SigPolicyDescription"), new PdfString("Política de Firma Digital Argentina"));
                 sigPolicy.Put(new PdfName("SigPolicyUri"), new PdfString(AppConfig.SigPolicyUri));
 
                 signatureDic.Put(PdfName.FILTER, PdfName.ADOBE_PPKLITE);
                 signatureDic.Put(PdfName.SUBFILTER, PdfName.ADBE_PKCS7_DETACHED);
-                signatureDic.Put(new PdfName("SigPolicy"), sigPolicy); // Clave crítica
+                signatureDic.Put(new PdfName("SigPolicy"), sigPolicy); 
 
                 appearance.CryptoDictionary = signatureDic;
 
               
 
-                // 6. Firma Digital
                 var signature = new TokenSignature(_session, certificate, pin);
                 MakeSignature.SignDetached(
                     appearance,
                     signature,
                     new[] { x509Cert },
-                    null, // CRLs
-                    null, // OCSP
-                    null, // TSA
-                    12288, // Espacio reservado para /Contents
+                    null, 
+                    null, 
+                    null, 
+                    12288,
                     CryptoStandard.CADES
                 );
 
@@ -157,7 +156,6 @@ namespace LegalDesktop.Services
                 _session = session;
                 _pin = pin;
 
-                // Obtener clave privada asociada al certificado
                 var certId = _session.GetAttributeValue(certificate, new List<CKA> { CKA.CKA_ID })[0].GetValueAsByteArray();
 
                 var searchTemplate = new List<IObjectAttribute>
@@ -183,7 +181,6 @@ namespace LegalDesktop.Services
             {
                 try
                 {
-                    // Primero intentar con SHA256
                     var mechanism = _session.Factories.MechanismFactory.Create(CKM.CKM_SHA256_RSA_PKCS);
                     return _session.Sign(mechanism, _privateKey, message);
                 }
@@ -191,7 +188,6 @@ namespace LegalDesktop.Services
                 {
                     try
                     {
-                        // Fallback a PKCS#1 v1.5 básico
                         var mechanism = _session.Factories.MechanismFactory.Create(CKM.CKM_RSA_PKCS);
                         return _session.Sign(mechanism, _privateKey, message);
                     }

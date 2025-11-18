@@ -68,9 +68,9 @@ namespace LegalDesktop.Services
 
         private class ApiData
         {
-            public int id { get; set; } // Asegúrate de incluir el Id
-            public string email { get; set; } // Asegúrate de incluir el Email
-            public string token { get; set; } // Asegúrate de incluir el Token
+            public int id { get; set; } 
+            public string email { get; set; } 
+            public string token { get; set; } 
             public string tokenExpiration { get; set; }
 
             public RoleUser roleUser { get; set; }

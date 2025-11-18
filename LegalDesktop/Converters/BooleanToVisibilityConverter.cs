@@ -7,7 +7,6 @@ namespace LegalDesktop.Converters
 {
     public class BooleanToVisibilityConverter : IValueConverter
     {
-        // Opcional: propiedad para invertir la lógica (Visibility.Collapsed cuando es true)
         public bool Invert { get; set; }
 
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)

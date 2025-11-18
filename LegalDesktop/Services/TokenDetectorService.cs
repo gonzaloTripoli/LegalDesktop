@@ -52,7 +52,6 @@ internal class TokenDetectorService
     {
         try
         {
-            // Implementación específica para detectar StarSign
             if (!File.Exists(AppConfig.Pkcs11LibraryPath))
                 return false;
 
@@ -84,7 +83,6 @@ internal class TokenDetectorService
        
     
 
-            // 2. Proveedor CNG moderno
             if (cert.GetRSAPrivateKey() is RSACng rsaCng)
             {
                 string providerName = rsaCng.Key?.Provider?.ToString() ?? "";

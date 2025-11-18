@@ -45,7 +45,7 @@ public class MainViewModel : INotifyPropertyChanged
     private readonly string url = AppConfig.BaseApiUrl;
 
     public ObservableCollection<PdfModel> PdfFiles { get; set; }
-    private FileSystemWatcher _watcher; // Observador de cambios en la carpeta
+    private FileSystemWatcher _watcher; 
     private bool _isLoading;
     public bool IsLoading
     {
@@ -53,11 +53,10 @@ public class MainViewModel : INotifyPropertyChanged
         set
         {
             _isLoading = value;
-            OnPropertyChanged(nameof(IsLoading)); // Asegúrate de tener INotifyPropertyChanged implementado
+            OnPropertyChanged(nameof(IsLoading)); 
         }
     }
     private string _token;
-    // Comandos
     public ICommand SelectAllCommand { get; }
     public ICommand SignCommand { get; }
     public ICommand OpenInfoCommand { get; }
@@ -85,7 +84,7 @@ public class MainViewModel : INotifyPropertyChanged
         SkipCommand = new RelayCommand(SkipSelectedFiles);
         UnselectAllCommand = new RelayCommand(UnselectAll);
         DeclineSelectCommand = new RelayCommand(DeclineSelectedFiles);
-        ViewPdfCommand = new RelayCommand<string>(ViewPdf); // Inicializa el comando
+        ViewPdfCommand = new RelayCommand<string>(ViewPdf); 
         ViewBackgroundCommand = new RelayCommand<string>(ViewPdf);
         ConfigureFileWatcher();
     }
@@ -102,7 +101,6 @@ public class MainViewModel : INotifyPropertyChanged
     {
         var infoWindow = new InfoWindow();
 
-        // Previene el error si MainWindow no está correctamente seteado
         if (Application.Current?.MainWindow != infoWindow && Application.Current?.MainWindow != null)
         {
             infoWindow.Owner = Application.Current.MainWindow;
@@ -119,22 +117,21 @@ public class MainViewModel : INotifyPropertyChanged
         _watcher = new FileSystemWatcher
         {
             Path = _pdfFolderPath,
-            Filter = "*.pdf", // Solo archivos PDF
+            Filter = "*.pdf", 
             NotifyFilter = NotifyFilters.FileName | NotifyFilters.LastWrite | NotifyFilters.Size
         };
 
-        // Suscribimos los eventos de cambios
+        
         _watcher.Created += (s, e) => OnFileChanged();
         _watcher.Deleted += (s, e) => OnFileChanged();
         _watcher.Changed += (s, e) => OnFileChanged();
         _watcher.Renamed += (s, e) => OnFileChanged();
 
-        _watcher.EnableRaisingEvents = true; // Activamos el FileSystemWatcher
-    }
+        _watcher.EnableRaisingEvents = true; 
 
     private void OnFileChanged()
     {
-        // Se ejecuta en el hilo de UI para actualizar la lista
+       
     }
 
     private async Task DownloadAndSavePdfsAsync()
@@ -247,7 +244,7 @@ public class MainViewModel : INotifyPropertyChanged
 
                 if (response.IsSuccessStatusCode)
                 {
-                    if (pdf.PathBackGround != null)
+                    if (pdf.PathBackGround != "")
                     {
                         File.Delete(pdf.PathBackGround);
 
@@ -305,7 +302,6 @@ public class MainViewModel : INotifyPropertyChanged
 
             try
             {
-                // 1. Pedir PIN
                 var pinDialog = new PinDialog();
                 if (pinDialog.ShowDialog() != true) return;
 
@@ -314,7 +310,6 @@ public class MainViewModel : INotifyPropertyChanged
                 var certDialog = new CertificateSelectionDialog(certificates);
                 if (certDialog.ShowDialog() != true) return;
 
-                // 3. Firmar cada PDF
                 foreach (var pdf in selectedFiles)
                 {
                     byte[] pdfBytes = File.ReadAllBytes(pdf.Path);
@@ -367,7 +362,7 @@ public class MainViewModel : INotifyPropertyChanged
                         certDialog.SelectedCertificate
                     );
                     string signedPath = Path.Combine(_signedPdfsFolder, pdf.Name);
-                    Directory.CreateDirectory(_signedPdfsFolder); // Asegura que la carpeta exista
+                    Directory.CreateDirectory(_signedPdfsFolder);
                     File.WriteAllBytes(signedPath, signedBytes);
                     File.Delete(pdf.Path);
                     pdf.Path = signedPath;

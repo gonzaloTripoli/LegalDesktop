@@ -37,7 +37,6 @@ namespace LegalDesktop.Services
     
       
 
-                // Proveedor CNG moderno
                 if (cert.GetRSAPrivateKey() is RSACng rsaCng)
                 {
                     string providerName = rsaCng.Key?.Provider?.ToString() ?? "";
@@ -99,15 +98,14 @@ namespace LegalDesktop.Services
                 appearance.Acro6Layers = true;
                 appearance.SignatureRenderingMode = PdfSignatureAppearance.RenderingMode.DESCRIPTION;
 
-                // Modificación clave: Usar la implementación personalizada de IExternalSignature
                 IExternalSignature signature = new X509Certificate2SignatureWrapper(cert, "SHA-256");
 
                 MakeSignature.SignDetached(
                     appearance,
                     signature,
                     new[] { bcCert },
-                    null, null, null, 12288,  // Cambiado de 12288 a 0 para mejor compatibilidad
-                    CryptoStandard.CADES  // Cambiado de CADES a CMS
+                    null, null, null, 12288,  
+                    CryptoStandard.CADES  
                 );
 
                 return ms.ToArray();
